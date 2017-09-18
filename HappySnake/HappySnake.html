@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>贪吃蛇游戏-Aaron yu</title>
+<style type="text/css">
+* {
+  margin: 0;
+  padding: 0;
+}
+ 
+.wrap {
+  width: 600px;
+  margin: 0 auto;
+  position: relative;
+}
+ 
+p {
+  position: absolute;
+  left: 65%;
+  top: 10%;
+}
+ 
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+ 
+#score {
+  text-align: center;
+  font-size: 20px;
+}
+ 
+#snake_map {
+  margin: 0 auto;
+  border: 1px solid skyblue;
+}
+/*行样式*/
+.row {
+  height: 20px;
+}
+/*列样式*/
+.col {
+  height: 20px;
+  width: 20px;
+  box-sizing: border-box;
+  border: 1px solid lightgray;
+  background: rgb(250, 250, 250);
+  float: left;
+  border-radius: 50%;
+}
+ 
+.activeSnake {
+  background: black;
+}
+ 
+.egg {
+  background: orange;
+}
+ 
+#Pause {
+  margin-left: 18%;
+  border: 1px solid skyblue;
+  color: white;
+  background: skyblue;
+  width: 50px;
+  height: 30px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+}
+ 
+#Start,#Refresh,#Speed {
+  border: 1px solid skyblue;
+  background: skyblue;
+  color: white;
+  width: 50px;
+  height: 30px;
+  border-radius: 5px;
+  margin-left: 15px;
+}
+</style>
+ 
+ 
+</head>
+ <body>
+ <audio autoplay="autoplay" controls="controls"loop="loop" preload="auto"src="music/HappySnake.mp3" style="opacity: .3;">
+    你的浏览器不支持audio标签
+</audio>
+
+  <div class="wrap">
+   <h1>贪吃蛇游戏</h1>
+   <!-- 记录吃了多少个蛋 -->
+   <p style="font-size:20px;color:red"> 得分：<span id="score" style="color:black">0</span> </p>
+   <!-- 暂停按钮 -->
+   <input id="Pause" type="button" name="name" value="暂停">
+   <!-- 开始按钮 -->
+   <input id="Start" type="button" name="name" value="开始">
+   <!-- 刷新(重新开始游戏) -->
+   <input id="Refresh" type="button" name="name" value="刷新">
+   <!-- 加速按钮 -->
+   <input id="Speed" type="button" name="name" value="加速">
+   <!-- 贪吃蛇的行走路径地图 -->
+   <div id="snake_map">
+ 
+   </div>
+  </div>
+ </body>
+ 
+ 
+<script type="text/javascript">
+	//获取分数标签
+var score = document.getElementById('score');
+// 获取路径地图标签
+var map = document.getElementById('snake_map');
+// 为了灵活的设置地图的大小,以下设置两个变量
+// 用于存储行数和列数(即方格的个数)
+var rowNumber = 25;// 行数
+var columnNumber = 20;// 列数;
+var mapWidth = columnNumber * 20 + 'px';// 地图的宽
+var mapHeight = rowNumber * 20 + 'px';// 地图的高
+map.style.width = mapWidth;
+map.style.height = mapHeight;// 设置地图宽高
+// 创建一个二维数组,用来记录地图上的所有div的位置
+var snakeDIVPosition = [];
+// 通过双层for循环来创建地图元素
+for ( var i = 0; i < rowNumber; i++) {
+  // 创建行div
+  var rowDIV = document.createElement('div');
+  // 设置div样式
+  rowDIV.className = 'row';
+  // 将行div添加到路径地图map中
+  map.appendChild(rowDIV);
+  // 创建一个行级数组,用来存储当前行中的每个方块div
+  var rowArray = [];
+  for ( var j = 0; j < columnNumber; j++) {
+    // 创建每一行中的方块div
+    var columnDIV = document.createElement('div');
+    // 设置css样式
+    columnDIV.className = 'col';
+    // 将方块DIV添加到当前行中
+    rowDIV.appendChild(columnDIV);
+    // 同时将方块添加到行数组中
+    rowArray.push(columnDIV);
+  }
+  // 当前内层循环结束,将行数组添加到二维数组中
+  snakeDIVPosition.push(rowArray);
+}
+ 
+// 创建蛇模型
+// 创建一个一维数组,用来存储蛇身所占的div
+var snake = [];
+// 固定蛇身起始长度为3个div
+for ( var i = 0; i < 3; i++) {
+  // 为蛇身设置不同颜色的div
+  snakeDIVPosition[0][i].className = 'col activeSnake';
+  // 存储在蛇身数组中
+  snake[i] = snakeDIVPosition[0][i];
+}
+// 定义变量来控制蛇
+var x = 2;
+var y = 0;// 蛇头的起始位置偏移量
+var scoreCount = 0;// 分数计数器,即吃了多少个蛋
+var eggX = 0;// 记录蛋所在的行位置
+var eggY = 0;// 记录蛋所在的列位置;
+ 
+var direction = 'right';// 记录蛇移动的方向,初始为向右
+var changeDir = true;// 判断是否需要改变蛇的移动方向
+var delayTimer = null;// 延迟定时器
+ 
+// 添加键盘事件监听方向键来改变蛇的移动方向
+document.onkeydown = function(event) {
+  // 先判断是否需要改变方向,true表示需要,false表示不需要
+  if (!changeDir) {
+    return;// return空表示直接结束函数,后续代码不执行
+  }
+  event = event || window.event;
+  // 是为了兼容Firefox等MOZ浏览器
+  // 为了合理处理蛇的移动,需要判断蛇头和蛇身
+  // 假设蛇向右移动,点方向键左,右键都不需要做出响应
+  if (direction == 'right' && event.keyCode == 37) {
+    return;// 终止事件执行，右
+  }
+   if (direction == 'down' && event.keyCode == 38) {
+    return; //下
+  }
+  if (direction == 'left' && event.keyCode == 39) {
+    return; //左
+  }
+  if (direction == 'up' && event.keyCode == 40) {
+    return; //上
+  }
+ 
+  // 我们通过keyCode确定蛇要移动的方向
+  switch (event.keyCode) {
+  case 37:
+    direction = 'left';// 向左
+    break;
+  case 38:
+    direction = 'up';// 向上;
+    break;
+  case 39:
+    direction = 'right';// 向右
+    break;
+  case 40:
+    direction = 'down';// 向下
+    break;
+  }
+  changeDir = false;
+  delayTimer = setTimeout(function() {
+    // 设置是否需要改变方向
+    changeDir = true;
+  }, 300);
+};
+ 
+// 开始设置蛇移动逻辑
+// 蛇移动函数
+function snakeMove() {
+  // 根据上面设置的方向来设置蛇头的位置
+  switch (direction) {
+  case 'left':
+    x--;
+    break;
+  case 'right':
+    x++;
+    break;
+  case 'up':
+    y--;
+    break;
+  case 'down':
+    y++;
+    break;
+  };
+  // 判断是否游戏结束
+  if (x < 0 || y < 0 || x >= columnNumber || y >= rowNumber) {
+    alert('Oh , Game Over !');
+    // 结束蛇移动的定时器
+    clearInterval(moveTimer);
+    return;// 终止键盘事件;
+  }
+  // 如果蛇吃到自己,也要结束游戏
+  for ( var i = 0; i < snake.length; i++) {
+    // 将此时蛇头移动后的位置与之前左右的组成蛇的div的位置进行比较,如果相同则说明吃到自己,游戏结束
+    if (snake[i] == snakeDIVPosition[y][x]) {
+      alert('Game over!!!');
+      clearInterval(moveTimer);
+      return;
+    };
+  }
+  // 判断蛇头移动的位置是否有蛋
+  if (eggX == x && eggY == y) {
+    snakeDIVPosition[eggY][eggX].className = 'col activeSnake';
+    snake.push(snakeDIVPosition[eggY][eggX]);// 加入蛇身
+    scoreCount++;// 记录分数
+    // 更新当前的分数
+    score.innerHTML = scoreCount;
+    // 随机产生一个新的蛋
+    createNewEgg();
+  } else {
+    // 设置蛇碰不到蛋的逻辑
+    // 让蛇移动
+    // 蛇尾去掉蛇自身的颜色,变成格子的颜色
+    snake[0].className = 'col';
+    // 将蛇尾div从数组中移除
+    snake.shift();
+    // 定位到的新的蛇头加入到蛇数组中
+    snakeDIVPosition[y][x].className = 'col activeSnake';
+    snake.push(snakeDIVPosition[y][x]);
+  };
+};
+ 
+var moveTimer = setInterval('snakeMove()', 300);
+ 
+ 
+// 定义一个生成min,max之间的随机数函数
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+};
+ 
+ 
+ 
+function createNewEgg() {
+  // 随机出新的egg的下标的x和y值
+  eggX = random(0, columnNumber - 1);
+  eggY = random(0, rowNumber - 1);
+ 
+  // 判断如果随机产生的蛋与蛇身重合,就重新随机产生一个蛋
+  if (snakeDIVPosition[eggY][eggX].className == 'col activeSnake') {
+    createNewEgg();// 重新随机新的egg
+  } else {
+    snakeDIVPosition[eggY][eggX].className = 'col egg';
+  }
+};
+ 
+createNewEgg();// 在游戏开始的时候生成新的egg
+ 
+var pause = document.getElementById('Pause');
+var start = document.getElementById('Start');
+var refresh = document.getElementById('Refresh');
+var speed = document.getElementById('Speed');
+// 添加暂停按钮
+pause.onclick = function() {
+  clearInterval(moveTimer);
+};
+// 添加开始按钮
+start.onclick = function() {
+  clearInterval(moveTimer);
+  moveTimer = setInterval('snakeMove()', speed1);
+};
+//添加刷新按钮
+refresh.onclick = function() {
+  window.location.reload();
+};
+//添加加速按钮
+var speed1 = 300;
+speed.onclick = function() {
+  speed1 -= 20;
+  clearInterval(moveTimer);
+  moveTimer = setInterval('snakeMove()', speed1);
+};
+</script>
+</html>
